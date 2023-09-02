@@ -50,7 +50,7 @@ if [ "$user_response" == "Y" ] || [ "$user_response" == "y" ]; then
     sudo nano /etc/hosts
 else
     # Usuario no comprendió, proporciona la URL del video tutorial
-    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/hrwoKO7LMzk?t=492"
+    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/"
     read -p "Cuando hayas terminado presiona Y, ¿entendiste el tutorial? (Y/N): " user_response_again
     if [ "$user_response_again" == "Y" ] || [ "$user_response_again" == "y" ]; then
         echo "¡Excelente! Procediendo..."
