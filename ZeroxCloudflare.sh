@@ -353,6 +353,43 @@ sudo find /var/www/html -type f -exec chmod 644 {} \;
 rm -r /var/www/html/license.txt
 rm -r /var/www/html/readme.html
 rm -r /var/www/html/index.html
+cd /var/www/html/wp-content/plugins
+
+ #!/bin/bash
+
+# Define la URL del archivo ZIP
+URL="https://raw.githubusercontent.com/Zerox-Security/ssl-cloudflare/main/cloudflare-flexible-ssl.1.3.1.zip"
+
+# Define la carpeta de destino de WordPress
+WP_PLUGIN_DIR="/var/www/html/wp-content/plugins"
+
+# Verifica si el descompresor zip está instalado
+if ! command -v unzip &>/dev/null; then
+    echo "El descompresor 'zip' no está instalado. Instalándolo..."
+    sudo apt-get update
+    sudo apt-get install -y unzip
+fi
+
+# Descarga el archivo ZIP
+echo "Descargando el archivo ZIP..."
+curl -o /tmp/cloudflare-flexible-ssl.zip "$URL"
+
+# Verifica si la descarga fue exitosa
+if [ $? -eq 0 ]; then
+    # Descomprime el archivo ZIP en la carpeta de plugins de WordPress
+    echo "Descomprimiendo el archivo ZIP en $WP_PLUGIN_DIR..."
+    unzip /tmp/cloudflare-flexible-ssl.zip -d "$WP_PLUGIN_DIR"
+
+    # Permisos ejecutados
+    echo "Cambiando los permisos de la carpeta del plugin..."
+    chown -R www-data:www-data "$WP_PLUGIN_DIR/cloudflare-flexible-ssl"
+    chmod -R 755 "$WP_PLUGIN_DIR/cloudflare-flexible-ssl"
+
+    echo "Instalación completada exitosamente."
+else
+    echo "Error al descargar el archivo ZIP."
+fi
+
 
 # Paso 7: Mostrar la información al usuario
 echo -e "\nInstalación completada. Aquí está la información:"
