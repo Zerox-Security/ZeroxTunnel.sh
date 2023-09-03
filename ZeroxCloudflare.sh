@@ -259,7 +259,24 @@ dos2unix /usr/local/bin/ips-zerox.sh
 
 apt update && apt upgrade -y
 # Paso 20: Realizar un reinicio con contador y puntos
-echo "El sistema se reiniciará en 5 segundos..."
+echo "El sistema se reiniciará en 5 segundos..."chmod +x /usr/local/bin/ips-zerox.sh
+
+# Contenido del archivo rc.local
+RC_LOCAL_CONTENT="#!/bin/sh -e\n\n# Añadir comandos aquí\n\nexit 0"
+
+# Ruta al archivo de script
+SCRIPT_FILE="/usr/local/bin/ips-zerox.sh"
+
+chmod +x /usr/local/bin/ips-zerox.sh
+
+# Crear o sobrescribir el archivo /etc/rc.local
+echo -e "$RC_LOCAL_CONTENT" | sudo tee /etc/rc.local > /dev/null
+
+# Añadir permisos de ejecución a /etc/rc.local
+sudo chmod +x /etc/rc.local
+
+# Habilitar el servicio rc-local
+sudo systemctl enable rc-local
 for i in {5..1}; do
     echo -n "$i..."
     sleep 1
