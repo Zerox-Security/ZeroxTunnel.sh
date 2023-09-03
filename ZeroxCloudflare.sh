@@ -50,7 +50,7 @@ if [ "$user_response" == "Y" ] || [ "$user_response" == "y" ]; then
     sudo nano /etc/hosts
 else
     # Usuario no comprendió, proporciona la URL del video tutorial
-    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/"
+    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/hrwoKO7LMzk?t=492"
     read -p "Cuando hayas terminado presiona Y, ¿entendiste el tutorial? (Y/N): " user_response_again
     if [ "$user_response_again" == "Y" ] || [ "$user_response_again" == "y" ]; then
         echo "¡Excelente! Procediendo..."
@@ -273,6 +273,13 @@ reboot
 apt install apache2 -y
 apt install -y mysql-server -y
 
+# Paso 0: Instalación de MySQL y configuración de base de datos
+read -p "Ingresa el nombre de la base de datos: " db_name
+read -p "Ingresa la contraseña para la base de datos: " db_password
+
+mysql -e "CREATE DATABASE $db_name;"
+mysql -e "CREATE USER '$db_name'@'localhost' IDENTIFIED BY '$db_password';"
+mysql -e "GRANT ALL ON $db_name.* to '$db_name'@'localhost';"
 
 # Paso 1: Instalación de PHP y Apache con módulos
 sudo apt install -y php7.4 php7.4-mysql libapache2-mod-php7.4
@@ -292,9 +299,36 @@ sudo systemctl restart apache2
 sudo a2enmod rewrite
 sudo systemctl restart apache2
 
+# Paso 3: Dar permisos a las carpetas de WordPress
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
 
-# Obtén el nombre de dominio de la máquina
-domain_name=$(hostname -f)
+# Paso 4, 5 y 6: Configuración del administrador de WordPress
+read -p "Ingresa el nombre de usuario del administrador de WordPress: " wp_admin
+read -p "Ingresa la contraseña del administrador de WordPress: " wp_password
+read -p "Ingresa el correo del administrador de WordPress: " wp_email
+
+# Descargar y configurar WordPress
+cd /tmp
+wget https://wordpress.org/latest.tar.gz
+tar -xzvf latest.tar.gz
+sudo cp -r wordpress/* /var/www/html/
+sudo mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
+sudo sed -i "s/database_name_here/$db_name/" /var/www/html/wp-config.php
+sudo sed -i "s/username_here/$db_name/" /var/www/html/wp-config.php
+sudo sed -i "s/password_here/$db_password/" /var/www/html/wp-config.php
+
+# Configurar datos del administrador en wp-config.php
+sudo sed -i "s/'username'/'$wp_admin'/" /var/www/html/wp-config.php
+sudo sed -i "s/'password'/'$wp_password'/" /var/www/html/wp-config.php
+sudo sed -i "s/'email'/'$wp_email'/" /var/www/html/wp-config.php
+
+
+# Verificar si se está ejecutando como superusuario
+if [[ $EUID -ne 0 ]]; then
+    echo "Este script debe ejecutarse como superusuario (root)." 
+    exit 1
+fi
 
 # Ruta al archivo apache2.conf
 httpd_conf="/etc/apache2/apache2.conf"
@@ -302,104 +336,35 @@ httpd_conf="/etc/apache2/apache2.conf"
 # Actualizar la configuración de AllowOverride en apache2.conf
 sed -i 's/AllowOverride None/AllowOverride All/g' "$httpd_conf"
 
-# Pregunta al usuario dónde desea instalar WordPress (/var/www/ por defecto)
-read -p "Ingrese la ubicación donde desea instalar WordPress (/var/www/): " install_location
-install_location="${install_location:-/var/www/}"
+# Actualizar la configuración en los bloques <Directory>
+sed -i 's/<Directory \"\/var\/www\">/<Directory \"\/var\/www\">\n    AllowOverride All\n    Require all granted/g' "$httpd_conf"
+sed -i 's/<Directory \"\/var\/www\/html\">/<Directory \"\/var\/www\/html\">\n    AllowOverride All\n    Options Indexes FollowSymLinks\n    Require all granted/g' "$httpd_conf"
 
-# Verifica que el directorio de instalación exista
-if [ ! -d "$install_location" ]; then
-  echo "El directorio de instalación no existe. Creando el directorio..."
-  mkdir -p "$install_location"
-fi
+# Reiniciar el servicio de Apache
+systemctl restart apache2
 
-# Descarga y descomprime WordPress en español
-cd "$install_location"
-wget https://es.wordpress.org/latest-es_ES.tar.gz
-tar -xzvf latest-es_ES.tar.gz
-rm latest-es_ES.tar.gz
-mv wordpress/* wordpress/.[^.]* .
+echo "La configuración de AllowOverride en Apache ha sido actualizada y el servicio reiniciado."
 
-# Configura Apache2 para servir WordPress desde la ubicación especificada
-echo "Configurando Apache2..."
-cat <<EOF > "/etc/apache2/sites-available/$domain_name.conf"
-<VirtualHost *:80>
-    DocumentRoot ${install_location}
-    ServerName $domain_name
-    <Directory ${install_location}>
-        AllowOverride All
-        Require all granted
-    </Directory>
-    <Directory ${install_location}/wp-content>
-        Options FollowSymLinks
-    </Directory>
-</VirtualHost>
-EOF
+#permisos de Wordpress
 
-a2ensite "$domain_name.conf"
-systemctl reload apache2
+sudo chown -R www-data:www-data /var/www/html
+sudo find /var/www/html -type d -exec chmod 755 {} \;
+sudo find /var/www/html -type f -exec chmod 644 {} \;
+rm -r /var/www/html/license.txt
+rm -r /var/www/html/readme.html
+rm -r /var/www/html/index.html
 
-# Actualiza la configuración en los bloques <Directory> en el archivo del usuario
-httpd_user_conf="${HOME}/.htaccess"
-cat <<EOF >> "$httpd_user_conf"
-<Directory "${install_location}">
-    AllowOverride All
-    Require all granted
-</Directory>
-<Directory "${install_location}/wp-content">
-    AllowOverride All
-    Options Indexes FollowSymLinks
-    Require all granted
-</Directory>
-EOF
+# Paso 7: Mostrar la información al usuario
+echo -e "\nInstalación completada. Aquí está la información:"
+echo "Tu Base de datos: $db_name"
+echo "Tu Contraseña de la base de datos: $db_password"
+echo "Tu Nombre de usuario del administrador: $wp_admin"
+echo "Tu Contraseña del administrador: $wp_password"
+echo "Tu Correo del administrador: $wp_email"
 
-# Descarga e instala el plugin de Cloudflare Flexible SSL
-cd "${install_location}/wp-content/plugins"
-wget https://downloads.wordpress.org/plugin/cloudflare-flexible-ssl.1.3.1.zip
-unzip cloudflare-flexible-ssl.1.3.1.zip
-rm cloudflare-flexible-ssl.1.3.1.zip
-
-# Configura las claves y permisos de WordPress
-cd "${install_location}"
-cp wp-config-sample.php wp-config.php
-
-# Pide al usuario la información de la base de datos
-read -p "Ingrese el nombre de la base de datos: " db_name
-read -p "Ingrese el usuario de la base de datos: " db_user
-read -p "Ingrese la contraseña de la base de datos: " db_password
-
-# Agrega la información de la base de datos al archivo de configuración de WordPress
-sed -i "s/database_name_here/$db_name/" wp-config.php
-sed -i "s/username_here/$db_user/" wp-config.php
-sed -i "s/password_here/$db_password/" wp-config.php
-
-# Genera las claves de WordPress
-curl -s https://api.wordpress.org/secret-key/1.1/salt/ >> wp-config.php
-
-# Pide al usuario un nombre de usuario y contraseña para WordPress
-read -p "Ingrese el nombre de usuario para WordPress: " wp_user
-read -sp "Ingrese la contraseña para WordPress: " wp_password
-echo # Salto de línea después de la contraseña
-
-# Agrega el nombre de usuario y la contraseña a WordPress
-wp user create "$wp_user" --role=administrator --user_pass="$wp_password"
-
-# Establece los permisos apropiados
-chown -R www-data:www-data "${install_location}"
-chmod -R 755 "${install_location}"
-
-# Muestra al usuario los datos ingresados y la URL de acceso
-echo "Datos ingresados:"
-echo "Ubicación de WordPress: ${install_location}"
-echo "Nombre de la base de datos: $db_name"
-echo "Usuario de la base de datos: $db_user"
-echo "Contraseña de la base de datos: ********" # oculta la contraseña
-echo "URL de acceso a WordPress: http://$domain_name/"
-echo "Nombre de usuario para WordPress: $wp_user"
-
-# Finalización
-echo "WordPress en español se ha instalado y configurado correctamente en ${install_location}."
-echo "Las configuraciones se han agregado al archivo del usuario en ${httpd_user_conf}."
-
+# Imprimir el enlace al sitio WordPress con el nombre de dominio
+domain_name=$(hostname)
+echo "Accede a tu sitio WordPress en: https://$domain_name/"
             ;;
         3)
           
@@ -501,6 +466,57 @@ echo "Configuración de seguridad completada y optimizado para un mejor rendimie
 
 
 			
+			;;
+			
+			4) 
+			
+
+# Verificar si se está ejecutando como root
+if [ "$EUID" -ne 0 ]; then
+  echo "Por favor, ejecuta este script como superusuario (root)."
+  exit 1
+fi
+
+# Actualizar el sistema
+apt update
+apt upgrade -y
+
+# Instalar Apache2 y PHP 7.4 si aún no están instalados
+apt install -y apache2 php7.4 libapache2-mod-php7.4
+
+# Instalar ModSecurity
+apt install -y libapache2-mod-security2
+
+# Habilitar el módulo ModSecurity
+a2enmod security2
+
+# Configurar ModSecurity
+cat <<EOL > /etc/apache2/mods-available/security2.conf
+<IfModule security2_module>
+    SecDataDir /var/cache/modsecurity
+    IncludeOptional /etc/modsecurity/*.conf
+    IncludeOptional /etc/modsecurity/*.load
+</IfModule>
+EOL
+
+# Habilitar el módulo ModSecurity
+a2enmod security2
+
+# Descargar el Core Rule Set (CRS)
+apt install -y git
+cd /etc/apache2/
+git clone https://github.com/coreruleset/coreruleset.git
+
+# Habilitar las reglas del CRS en la configuración de ModSecurity
+cat <<EOL >> /etc/apache2/mods-available/security2.conf
+IncludeOptional /etc/apache2/coreruleset/*.conf
+EOL
+
+# Reiniciar Apache
+systemctl restart apache2
+
+echo "La instalación y configuración de ModSecurity se ha completado."
+
 			;;
 
         *)
