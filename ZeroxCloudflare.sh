@@ -330,6 +330,37 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
+# Configurar la auditoría de Apache2
+echo "Configurando la auditoría de Apache2..."
+mkdir -p /var/log/apache2/audit
+cat <<EOF > /etc/apache2/conf-available/audit.conf
+SecAuditEngine RelevantOnly
+SecAuditLogType Concurrent
+SecAuditLog /var/log/apache2/audit/modsec_audit.log
+SecAuditLogStorageDir /var/log/apache2/audit
+SecAuditLogRelevantStatus "^(?:5|4(?!04))"
+EOF
+
+# Habilitar la configuración de auditoría
+a2enconf audit
+systemctl restart apache2
+
+# Configurar actualizaciones automáticas de seguridad
+echo "Configurando actualizaciones automáticas de seguridad..."
+apt-get install -y unattended-upgrades
+cat <<EOF > /etc/apt/apt.conf.d/20auto-upgrades
+APT::Periodic::Update-Package-Lists "1";
+APT::Periodic::Unattended-Upgrade "1";
+EOF
+
+# Reiniciar el servicio de actualizaciones automáticas
+systemctl enable unattended-upgrades
+systemctl restart unattended-upgrades
+
+echo "Configuración finalizada. Tu servidor Apache2 está configurado en modo paranoico y con medidas de seguridad adicionales."
+
+
+
 # Ruta al archivo apache2.conf
 httpd_conf="/etc/apache2/apache2.conf"
 
@@ -355,7 +386,6 @@ rm -r /var/www/html/readme.html
 rm -r /var/www/html/index.html
 cd /var/www/html/wp-content/plugins
 
- #!/bin/bash
 
 # Define la URL del archivo ZIP
 URL="https://raw.githubusercontent.com/Zerox-Security/ssl-cloudflare/main/cloudflare-flexible-ssl.1.3.1.zip"
