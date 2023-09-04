@@ -617,7 +617,8 @@ else
   echo "Respuesta no válida. Por favor, ingrese 'Y' o 'N'."
 fi
 
-# RSA
+#!/bin/bash
+
 # Elimina las claves host existentes
 rm /etc/ssh/ssh_host_*
 
@@ -627,18 +628,21 @@ ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
 # Genera nuevas claves Ed25519
 ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
 
-rm /etc/ssh/ssh_host_*
-
-ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
-
-ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
-
+# Filtra y modifica el archivo moduli
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
-
 mv /etc/ssh/moduli.safe /etc/ssh/moduli
+
+# Actualiza la configuración del servidor SSH
 sed -i 's/^\#HostKey \/etc\/ssh\/ssh_host_\(rsa\|ed25519\)_key$/HostKey \/etc\/ssh\/ssh_host_\1_key/g' /etc/ssh/sshd_config
-echo -e "\n# Restrict key exchange, cipher, and MAC algorithms, as per sshaudit.com\n# hardening guide.\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\nMACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com\nHostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-512,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com" > /etc/ssh/sshd_config.d/ssh-audit_hardening.conf
+
+# Agrega configuraciones de seguridad adicionales
+echo -e "\n# Restricción de algoritmos de intercambio de claves, cifrado y MAC, según sshaudit.com\n# guía de endurecimiento.\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\nMACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com\nHostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-512,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com" > /etc/ssh/sshd_config.d/ssh-audit_hardening.conf
+
+# Reinicia el servicio SSH
 service ssh restart
+
+echo "Configuración de SSH completada."
+
 
 
 echo "Configuración de SSH completada."
