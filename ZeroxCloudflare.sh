@@ -19,6 +19,10 @@ show_options() {
     echo "2. WORDPRESS"
     echo "3. PROTEGER APACHE"
     echo "4. MODSECURITY"
+    echo "5. ESCUDO-SSH"
+    echo "4. UBUNTU ESPAÑOL"
+    echo "4. FAIL2BAN"
+    echo "4. PHP INI"
     echo "0. Salir"
 }
 
@@ -602,6 +606,59 @@ systemctl restart apache2
 echo "La instalación y configuración de ModSecurity se ha completado."
 
 			;;
+   
+   			5) 
+      # Función para cambiar y descomentar el puerto SSH
+change_ssh_port() {
+  read -p "Por favor, ingrese el nuevo puerto SSH: " new_port
+  if [[ $new_port =~ ^[0-9]+$ ]]; then
+    sed -i "/^#*Port/c\Port $new_port" /etc/ssh/sshd_config
+    systemctl restart sshd
+    echo "El puerto SSH se ha cambiado y descomentado exitosamente a $new_port."
+  else
+    echo "¡Por favor, ingrese un número de puerto válido!"
+  fi
+}
+
+# Pregunta al usuario si ya abrió el puerto en el panel de control de la empresa
+read -p "¿Ha abierto el puerto SSH en el panel de control de su empresa de distribuidor? (Y/N): " response
+
+if [ "$response" == "Y" ] || [ "$response" == "y" ]; then
+  change_ssh_port
+elif [ "$response" == "N" ] || [ "$response" == "n" ]; then
+  # Advertencia en color verde y en mayúsculas
+  echo -e "\e[32m¡ADVERTENCIA: DEBE ABRIR Y DESCOMENTAR EL PUERTO SSH EN EL PANEL DE CONTROL DE SU EMPRESA DE DISTRIBUIDOR PARA EVITAR PERDER ACCESO A SU MÁQUINA!\e[0m"
+else
+  echo "Respuesta no válida. Por favor, ingrese 'Y' o 'N'."
+fi
+
+# RSA
+# Elimina las claves host existentes
+rm /etc/ssh/ssh_host_*
+
+# Genera nuevas claves RSA
+ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N ""
+
+# Genera nuevas claves Ed25519
+ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+
+# Filtra y modifica el archivo moduli
+awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.safe
+mv /etc/ssh/moduli.safe /etc/ssh/moduli
+
+# Actualiza la configuración del servidor SSH
+sed -i 's/^\#HostKey \/etc\/ssh\/ssh_host_\(rsa\|ed25519\)_key$/HostKey \/etc\/ssh\/ssh_host_\1_key/g' /etc/ssh/sshd_config
+
+# Agrega configuraciones de seguridad adicionales
+echo -e "\n# Restricción de algoritmos de intercambio de claves, cifrado y MAC, según sshaudit.com\n# guía de endurecimiento.\nKexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group-exchange-sha256\nCiphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr\nMACs hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,umac-128-etm@openssh.com\nHostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,sk-ssh-ed25519@openssh.com,sk-ssh-ed25519-cert-v01@openssh.com,rsa-sha2-256,rsa-sha2-512,rsa-sha2-256-cert-v01@openssh.com,rsa-sha2-512-cert-v01@openssh.com" > /etc/ssh/sshd_config.d/ssh-audit_hardening.conf
+
+# Reinicia el servicio SSH
+service ssh restart
+
+echo "Configuración de SSH completada."
+
+      
+      			;;
 
         *)
             echo "Opción inválida."
