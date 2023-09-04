@@ -351,21 +351,6 @@ if [[ $EUID -ne 0 ]]; then
     exit 1
 fi
 
-# Configurar la auditoría de Apache2
-echo "Configurando la auditoría de Apache2..."
-mkdir -p /var/log/apache2/audit
-cat <<EOF > /etc/apache2/conf-available/audit.conf
-SecAuditEngine RelevantOnly
-SecAuditLogType Concurrent
-SecAuditLog /var/log/apache2/audit/modsec_audit.log
-SecAuditLogStorageDir /var/log/apache2/audit
-SecAuditLogRelevantStatus "^(?:5|4(?!04))"
-EOF
-
-# Habilitar la configuración de auditoría
-a2enconf audit
-systemctl restart apache2
-
 # Configurar actualizaciones automáticas de seguridad
 echo "Configurando actualizaciones automáticas de seguridad..."
 apt-get install -y unattended-upgrades
