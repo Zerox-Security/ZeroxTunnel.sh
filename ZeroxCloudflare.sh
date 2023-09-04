@@ -9,6 +9,7 @@ show_banner() {
 ┏━┛┣╸ ┣┳┛┃ ┃┏╋┛   ┗━┓┣╸ ┃  ┃ ┃┣┳┛┃ ┃ ┗┳┛
 ┗━╸┗━╸╹┗╸┗━┛╹ ╹   ┗━┛┗━╸┗━╸┗━┛╹┗╸╹ ╹  ╹	
      Protección Nivel 2
+        Ubuntu 20.04
     '
 }
 
@@ -20,8 +21,8 @@ show_options() {
     echo "3. PROTEGER APACHE"
     echo "4. MODSECURITY"
     echo "5. ESCUDO-SSH"
-    echo "4. UBUNTU ESPfAÑOL"
-    echo "4. FAIL2BAN"
+    echo "6. UBUNTU ESPAÑOL"
+    echo "7. FAIL2BAN"
     echo "4. PHP INI"
     echo "0. Salir"
 }
@@ -542,20 +543,26 @@ echo "Configuración de seguridad completada y optimizado para un mejor rendimie
 			;;
 			
 			4) 
-			
 
-# Verificar si se está ejecutando como root
-if [ "$EUID" -ne 0 ]; then
-  echo "Por favor, ejecuta este script como superusuario (root)."
-  exit 1
+   #!/bin/bash
+
+# Verificar si el script se ejecuta como root
+if [ "$(id -u)" != "0" ]; then
+    echo "Este script debe ejecutarse como root."
+    exit 1
 fi
 
-# Actualizar el sistema
-apt update
-apt upgrade -y
+# Instalar Apache2 si no está instalado
+if ! dpkg -l | grep -q apache2; then
+    apt update
+    apt install -y apache2
+fi
 
-# Instalar Apache2 y PHP 7.4 si aún no están instalados
-apt install -y apache2 php7.4 libapache2-mod-php7.4
+# Instalar PHP si no está instalado
+if ! dpkg -l | grep -q php; then
+    apt update
+    apt install -y php
+fi
 
 # Instalar ModSecurity
 apt install -y libapache2-mod-security2
@@ -563,32 +570,35 @@ apt install -y libapache2-mod-security2
 # Habilitar el módulo ModSecurity
 a2enmod security2
 
+# Reiniciar Apache para que los cambios surtan efecto
+systemctl restart apache2
+
 # Configurar ModSecurity
-cat <<EOL > /etc/apache2/mods-available/security2.conf
-<IfModule security2_module>
-    SecDataDir /var/cache/modsecurity
-    IncludeOptional /etc/modsecurity/*.conf
-    IncludeOptional /etc/modsecurity/*.load
-</IfModule>
-EOL
+mv /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
 
-# Habilitar el módulo ModSecurity
-a2enmod security2
+# Cambiar la configuración de ModSecurity
+sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/modsecurity/modsecurity.conf
+sed -i 's/SecAuditLogParts ABDEFHIJZ/SecAuditLogParts ABCEFHJKZ/' /etc/modsecurity/modsecurity.conf
 
-# Descargar el Core Rule Set (CRS)
-apt install -y git
-cd /etc/apache2/
-git clone https://github.com/coreruleset/coreruleset.git
+# Descargar e instalar el Conjunto de Reglas Principal OWASP (CRS)
+wget https://github.com/coreruleset/coreruleset/archive/v3.3.0.tar.gz
+tar xvf v3.3.0.tar.gz
+mkdir -p /etc/apache2/modsecurity-crs/
+mv coreruleset-3.3.0/ /etc/apache2/modsecurity-crs/
 
-# Habilitar las reglas del CRS en la configuración de ModSecurity
-cat <<EOL >> /etc/apache2/mods-available/security2.conf
-IncludeOptional /etc/apache2/coreruleset/*.conf
-EOL
+# Cambiar la configuración de security2.conf para usar el CRS
+sed -i 's,IncludeOptional /usr/share/modsecurity-crs/*.load,IncludeOptional /etc/apache2/modsecurity-crs/coreruleset-3.3.0/crs-setup.conf\nIncludeOptional /etc/apache2/modsecurity-crs/coreruleset-3.3.0/rules/*.conf,' /etc/apache2/mods-enabled/security2.conf
+
+# Probar la configuración de Apache
+apache2ctl -t
 
 # Reiniciar Apache
 systemctl restart apache2
 
-echo "La instalación y configuración de ModSecurity se ha completado."
+# Información adicional para el usuario
+echo "ModSecurity se ha instalado y configurado correctamente."
+echo "Puedes realizar pruebas adicionales para asegurarte de que todo funcione según lo esperado."
+
 
 			;;
    
@@ -649,6 +659,155 @@ echo "Configuración de SSH completada."
 
       
       			;;
+
+			6)
+
+
+# Actualizar el sistema e instalar Fail2Ban
+sudo apt update
+sudo apt install fail2ban
+
+# Crear un archivo jail.local y configurar reglas personalizadas
+sudo tee /etc/fail2ban/jail.local <<EOL
+[apache]
+enabled = true
+port = http,https
+filter = apache-auth
+logpath = /var/log/apache2/access.log
+maxretry = 3
+
+[apache-overflows]
+enabled = true
+port = http,https
+filter = apache-overflows
+logpath = /var/log/apache2/access.log
+maxretry = 2
+
+[php-url-fopen]
+enabled = true
+port = http,https
+filter = php-url-fopen
+logpath = /var/log/apache2/error.log
+maxretry = 2
+EOL
+
+# Crear archivos de filtro personalizados para Apache2 y PHP
+sudo tee /etc/fail2ban/filter.d/apache-auth.conf <<EOL
+[Definition]
+failregex = ^%(__prefix_line)s(?:\[client <HOST>\] \S+\s+)+\s+user .* authentication failure$
+ignoreregex =
+EOL
+
+sudo tee /etc/fail2ban/filter.d/apache-overflows.conf <<EOL
+[Definition]
+failregex = ^%(__prefix_line)s.* \(\d+\): \[\S+\]\s+\[error\]\s+\[client <HOST>\]
+ignoreregex =
+EOL
+
+sudo tee /etc/fail2ban/filter.d/php-url-fopen.conf <<EOL
+[Definition]
+failregex = ^%(__prefix_line)sPHP Warning: .* allow_url_fopen=On .*
+ignoreregex =
+EOL
+
+# Reiniciar Fail2Ban para aplicar la configuración
+sudo service fail2ban restart
+
+echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
+
+7)
+
+
+;;
+
+
+   echo "Este script configurará automáticamente el idioma en Ubuntu Server 20.04"
+echo "Asegúrate de tener acceso sudo para ejecutarlo."
+
+# Verifica si el usuario tiene permisos de superusuario (sudo)
+if [ "$(id -u)" != "0" ]; then
+  echo "Este script debe ser ejecutado con privilegios de superusuario (sudo)."
+  exit 1
+fi
+
+# Definir lista de idiomas con nombres de países
+declare -A locales
+locales["Argentina"]="es_AR.UTF-8"
+locales["Bolivia"]="es_BO.UTF-8"
+locales["Chile"]="es_CL.UTF-8"
+locales["Colombia"]="es_CO.UTF-8"
+locales["Costa Rica"]="es_CR.UTF-8"
+locales["Cuba"]="es_CU.UTF-8"
+locales["República Dominicana"]="es_DO.UTF-8"
+locales["Ecuador"]="es_EC.UTF-8"
+locales["España"]="es_ES.UTF-8"
+locales["Guatemala"]="es_GT.UTF-8"
+locales["Honduras"]="es_HN.UTF-8"
+locales["México"]="es_MX.UTF-8"
+locales["Nicaragua"]="es_NI.UTF-8"
+locales["Panamá"]="es_PA.UTF-8"
+locales["Perú"]="es_PE.UTF-8"
+locales["Puerto Rico"]="es_PR.UTF-8"
+locales["Paraguay"]="es_PY.UTF-8"
+locales["El Salvador"]="es_SV.UTF-8"
+locales["Español USA"]="es_US.UTF-8"
+locales["Uruguay"]="es_UY.UTF-8"
+locales["Venezuela"]="es_VE.UTF-8"
+
+# Mostrar lista de idiomas con números
+echo "Seleccione el idioma deseado por número:"
+index=1
+for country in "${!locales[@]}"; do
+  echo "$index) $country"
+  index=$((index+1))
+done
+
+# Solicita al usuario que ingrese el número correspondiente al nuevo idioma
+read -p "Número del idioma deseado: " selected_index
+
+# Verifica si la selección es válida
+if ! [[ "$selected_index" =~ ^[0-9]+$ ]] || [ "$selected_index" -lt 1 ] || [ "$selected_index" -gt "${#locales[@]}" ]; then
+  echo "Selección no válida. Debes ingresar el número correspondiente a un idioma de la lista."
+  exit 1
+fi
+
+# Obtiene el nuevo idioma seleccionado
+selected_index=$((selected_index-1))
+new_locale="${locales[$selected_index]}"
+
+# Verifica si el idioma está instalado, y si no, lo instala
+if [ -z "$(locale -a | grep -i "^$new_locale$")" ]; then
+  echo "El idioma seleccionado no está instalado. Instalando el paquete de idioma..."
+  sudo apt-get install -y language-pack-es
+fi
+
+# Configura el nuevo idioma
+echo "Configurando el idioma seleccionado..."
+update-locale LANG="$new_locale"
+
+# Aplica el nuevo idioma en la sesión actual
+export LANG="$new_locale"
+
+# Muestra el idioma actual
+echo "El idioma se ha configurado automáticamente a $new_locale."
+
+# ...
+
+# Muestra el idioma actual
+echo "El idioma se ha configurado automáticamente a $new_locale."
+
+# Añade un contador de reinicio de 5 segundos
+echo "La máquina se reiniciará en 5 segundos para aplicar los cambios."
+sleep 5
+
+# Reinicia la máquina
+echo "Reiniciando la máquina..."
+reboot
+
+	6)
+
+
+               ;;
 
         *)
             echo "Opción inválida."
