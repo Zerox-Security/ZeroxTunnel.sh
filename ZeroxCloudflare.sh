@@ -10,6 +10,7 @@ show_banner() {
 ┗━╸┗━╸╹┗╸┗━┛╹ ╹   ┗━┛┗━╸┗━╸┗━┛╹┗╸╹ ╹  ╹	
      Protección Nivel 2
         Ubuntu 20.04
+	
     '
 }
 
@@ -21,9 +22,9 @@ show_options() {
     echo "3. PROTEGER APACHE"
     echo "4. MODSECURITY"
     echo "5. ESCUDO-SSH"
-    echo "6. UBUNTU ESPAÑOL"
-    echo "7. FAIL2BAN"
-    echo "4. PHP INI"
+    echo "6. FAIL2BAN"
+    echo "7. MOD-PHP.INI"
+	echo "8. RESET 1-2-3-4-5"
     echo "0. Salir"
 }
 
@@ -55,7 +56,7 @@ if [ "$user_response" == "Y" ] || [ "$user_response" == "y" ]; then
     sudo nano /etc/hosts
 else
     # Usuario no comprendió, proporciona la URL del video tutorial
-    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/hrwoKO7LMzk?t=492"
+    echo "Vamos a abrir el video para ti, copia la URL y pégala en tu navegador: https://youtu.be/zk?t=492"
     read -p "Cuando hayas terminado presiona Y, ¿entendiste el tutorial? (Y/N): " user_response_again
     if [ "$user_response_again" == "Y" ] || [ "$user_response_again" == "y" ]; then
         echo "¡Excelente! Procediendo..."
@@ -339,6 +340,25 @@ sudo mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
 sudo sed -i "s/database_name_here/$db_name/" /var/www/html/wp-config.php
 sudo sed -i "s/username_here/$db_name/" /var/www/html/wp-config.php
 sudo sed -i "s/password_here/$db_password/" /var/www/html/wp-config.php
+
+# Ruta del archivo de configuración de WordPress
+wp_config_file="/var/www/html/wp-config.php"
+
+# Comprueba si el archivo de configuración existe
+if [ ! -f "$wp_config_file" ]; then
+    echo "El archivo de configuración wp-config.php no se encontró en la ubicación especificada."
+    exit 1
+fi
+
+# Descarga las claves secretas desde WordPress.org
+salt_data=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
+
+# Reemplaza las claves secretas en el archivo de configuración
+sed -i -e '/AUTH_KEY/d' -e '/SECURE_AUTH_KEY/d' -e '/LOGGED_IN_KEY/d' -e '/NONCE_KEY/d' -e '/AUTH_SALT/d' -e '/SECURE_AUTH_SALT/d' -e '/LOGGED_IN_SALT/d' -e '/NONCE_SALT/d' "$wp_config_file"
+echo "$salt_data" >> "$wp_config_file"
+
+echo "Claves secretas de WordPress actualizadas con éxito en $wp_config_file"
+
 
 # Configurar datos del administrador en wp-config.php
 sudo sed -i "s/'username'/'$wp_admin'/" /var/www/html/wp-config.php
@@ -715,99 +735,157 @@ sudo service fail2ban restart
 
 echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
 
-7)
-
-
 ;;
 
+7)
 
-   echo "Este script configurará automáticamente el idioma en Ubuntu Server 20.04"
-echo "Asegúrate de tener acceso sudo para ejecutarlo."
+ # Ruta de los archivos php.ini
+php_ini_cli="/etc/php/7.4/cli/php.ini"
+php_ini_apache="/etc/php/7.3/apache2/php.ini"
 
-# Verifica si el usuario tiene permisos de superusuario (sudo)
-if [ "$(id -u)" != "0" ]; then
-  echo "Este script debe ser ejecutado con privilegios de superusuario (sudo)."
-  exit 1
+# Variables a configurar
+upload_max_filesize="128M"
+post_max_size="128M"
+memory_limit="256M"
+
+# Variables de tiempo
+max_execution_time="300"
+max_input_time="300"
+extended_execution_time="3600"  # 1 hora en segundos
+
+# Comando para reiniciar el servidor web
+restart_command="service apache2 restart"
+
+# Verificar si la opción de tiempo extendido está habilitada
+if [ -f "/tmp/php-extended-time" ]; then
+    # Configurar valores extendidos
+    max_execution_time="$extended_execution_time"
+    max_input_time="$extended_execution_time"
 fi
 
-# Definir lista de idiomas con nombres de países
-declare -A locales
-locales["Argentina"]="es_AR.UTF-8"
-locales["Bolivia"]="es_BO.UTF-8"
-locales["Chile"]="es_CL.UTF-8"
-locales["Colombia"]="es_CO.UTF-8"
-locales["Costa Rica"]="es_CR.UTF-8"
-locales["Cuba"]="es_CU.UTF-8"
-locales["República Dominicana"]="es_DO.UTF-8"
-locales["Ecuador"]="es_EC.UTF-8"
-locales["España"]="es_ES.UTF-8"
-locales["Guatemala"]="es_GT.UTF-8"
-locales["Honduras"]="es_HN.UTF-8"
-locales["México"]="es_MX.UTF-8"
-locales["Nicaragua"]="es_NI.UTF-8"
-locales["Panamá"]="es_PA.UTF-8"
-locales["Perú"]="es_PE.UTF-8"
-locales["Puerto Rico"]="es_PR.UTF-8"
-locales["Paraguay"]="es_PY.UTF-8"
-locales["El Salvador"]="es_SV.UTF-8"
-locales["Español USA"]="es_US.UTF-8"
-locales["Uruguay"]="es_UY.UTF-8"
-locales["Venezuela"]="es_VE.UTF-8"
+# Función para agregar configuraciones a php.ini
+add_php_config() {
+    local file="$1"
+    local config="$2"
+    echo "Agregando configuraciones a $file"
+    echo "$config" >> "$file"
+}
 
-# Mostrar lista de idiomas con números
-echo "Seleccione el idioma deseado por número:"
-index=1
-for country in "${!locales[@]}"; do
-  echo "$index) $country"
-  index=$((index+1))
-done
+# Función para restaurar configuraciones originales de php.ini
+restore_php_config() {
+    local file="$1"
+    local original_file="$2"
+    echo "Restaurando configuraciones originales de $file"
+    mv "$original_file" "$file"
+    $restart_command
+}
 
-# Solicita al usuario que ingrese el número correspondiente al nuevo idioma
-read -p "Número del idioma deseado: " selected_index
+# Mostrar menú de opciones al usuario
+echo "Menú de opciones:"
+echo "1) Ajustar a PHP"
+echo "2) Volver a asegurar PHP"
+read -p "Elija una opción (1/2): " option
 
-# Verifica si la selección es válida
-if ! [[ "$selected_index" =~ ^[0-9]+$ ]] || [ "$selected_index" -lt 1 ] || [ "$selected_index" -gt "${#locales[@]}" ]; then
-  echo "Selección no válida. Debes ingresar el número correspondiente a un idioma de la lista."
-  exit 1
+# Ejecutar opción seleccionada
+case "$option" in
+    1)
+        # Guardar configuración original de php.ini
+        cp "$php_ini_cli" "/tmp/php.ini.cli.bak"
+        cp "$php_ini_apache" "/tmp/php.ini.apache.bak"
+
+        # Agregar configuraciones extendidas
+        add_php_config "$php_ini_cli" "php_value max_execution_time $extended_execution_time"
+        add_php_config "$php_ini_apache" "php_value max_execution_time $extended_execution_time"
+
+        echo "Configuración extendida aplicada."
+
+        # Guardar marca para la opción de tiempo extendido
+        touch "/tmp/php-extended-time"
+
+        # Reiniciar el servidor web
+        $restart_command
+        ;;
+
+    2)
+        # Restaurar configuraciones originales de php.ini
+        restore_php_config "$php_ini_cli" "/tmp/php.ini.cli.bak"
+        restore_php_config "$php_ini_apache" "/tmp/php.ini.apache.bak"
+
+        # Eliminar marca para la opción de tiempo extendido
+        rm -f "/tmp/php-extended-time"
+
+        echo "Configuración restaurada al estado original."
+        ;;
+    *)
+        echo "Opción no válida."
+        ;;
+esac
+
+# Esperar 1 hora antes de revertir automáticamente
+sleep "$extended_execution_time"
+
+# Verificar si la opción de tiempo extendido está habilitada después de 1 hora
+if [ -f "/tmp/php-extended-time" ]; then
+    # Restaurar configuraciones originales de php.ini después de 1 hora
+    restore_php_config "$php_ini_cli" "/tmp/php.ini.cli.bak"
+    restore_php_config "$php_ini_apache" "/tmp/php.ini.apache.bak"
+
+    # Eliminar marca para la opción de tiempo extendido
+    rm -f "/tmp/php-extended-time"
+
+    echo "Se ha restaurado automáticamente la configuración al estado original después de 1 hora."
+fi
+;;
+
+		8)
+		
+		
+
+# Comando para eliminar MySQL y sus configuraciones
+sudo apt-get purge -y mysql-server mysql-client mysql-common mysql-server-core-* mysql-client-core-* -y
+sudo rm -rf /etc/mysql /var/lib/mysql
+
+# Comando para eliminar Apache2 y sus configuraciones
+sudo apt-get purge -y apache2 apache2-utils apache2.2-bin apache2-common -y
+sudo rm -rf /etc/apache2
+
+# Comando para eliminar PHP 7.4 y sus módulos
+sudo apt-get purge -y php7.4 php7.4-common php7.4-cli php7.4-fpm php7.4-mysql php7.4-curl php7.4-gd php7.4-json php7.4-zip php7.4-mbstring php7.4-intl php7.4-xml php7.4-bcmath php7.4-json php7.4-iconv php7.4-xdebug php7.4-soap php7.4-ldap -y
+sudo rm -rf /etc/php/7.4
+
+# Comando para eliminar ModSecurity y sus configuraciones
+sudo apt-get purge -y libapache2-mod-security2
+sudo rm -rf /etc/modsecurity /var/log/modsecurity
+
+# Comando para eliminar Cloudflared
+sudo cloudflared service uninstall -y
+
+# Comando para eliminar WordPress desde /var/www/html/
+sudo rm -rf /var/www/html/*
+
+# Confirmar la eliminación
+echo "Eliminación completa de PHP 7.4, MySQL, Apache2, ModSecurity, Cloudflared y WordPress."
+
+# Limpia las dependencias no utilizadas
+sudo apt-get autoremove -y
+
+# Verificar si la carpeta /root/.cloudflared/ existe y eliminarla si es necesario
+if [ -d "/root/.cloudflared" ]; then
+  sudo rm -rf "/root/.cloudflared"
+  echo "La carpeta /root/.cloudflared/ ha sido eliminada."
+else
+  echo "La carpeta /root/.cloudflared/ no existe."
 fi
 
-# Obtiene el nuevo idioma seleccionado
-selected_index=$((selected_index-1))
-new_locale="${locales[$selected_index]}"
+		;;
+		
+		
+		9)
+		
+		
+		
+		;;
 
-# Verifica si el idioma está instalado, y si no, lo instala
-if [ -z "$(locale -a | grep -i "^$new_locale$")" ]; then
-  echo "El idioma seleccionado no está instalado. Instalando el paquete de idioma..."
-  sudo apt-get install -y language-pack-es
-fi
-
-# Configura el nuevo idioma
-echo "Configurando el idioma seleccionado..."
-update-locale LANG="$new_locale"
-
-# Aplica el nuevo idioma en la sesión actual
-export LANG="$new_locale"
-
-# Muestra el idioma actual
-echo "El idioma se ha configurado automáticamente a $new_locale."
-
-# ...
-
-# Muestra el idioma actual
-echo "El idioma se ha configurado automáticamente a $new_locale."
-
-# Añade un contador de reinicio de 5 segundos
-echo "La máquina se reiniciará en 5 segundos para aplicar los cambios."
-sleep 5
-
-# Reinicia la máquina
-echo "Reiniciando la máquina..."
-reboot
-
-	6)
-
-
-               ;;
 
         *)
             echo "Opción inválida."
