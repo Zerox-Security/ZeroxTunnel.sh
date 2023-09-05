@@ -327,7 +327,7 @@ chown -R www-data:www-data html
 
 # Reinicia Apache para aplicar la configuración
 systemctl restart apache2
-
+sudo apt install php7.4 libapache2-mod-php7.4
 sudo a2enmod php7.4
 sudo a2enmod headers
 
@@ -348,7 +348,7 @@ echo "URL del dominio de tu sitio web: $domain_url"
 echo "ServerName localhost" | sudo tee /etc/apache2/conf-available/servername.conf
 sudo a2enconf servername
 
-echo "Configuración completada hemos reparado un error que va a suceder."
+echo "Configuración completada, hemos reparado un error que va a suceder."
 
 # Reiniciar Apache
 sudo systemctl restart apache2
@@ -734,7 +734,7 @@ echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
 
  # Ruta de los archivos php.ini
 php_ini_cli="/etc/php/7.4/cli/php.ini"
-php_ini_apache="/etc/php/7.3/apache2/php.ini"
+php_ini_apache="/etc/php/7.4/apache2/php.ini"
 
 # Variables a configurar
 upload_max_filesize="128M"
