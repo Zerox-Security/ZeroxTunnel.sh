@@ -293,21 +293,56 @@ reboot
        
         2)
 	
-apt install apache2 -y
-apt install -y mysql-server -y
 
-# Paso 0: Instalación de MySQL y configuración de base de datos
-read -p "Ingresa el nombre de la base de datos: " db_name
-read -p "Ingresa la contraseña para la base de datos: " db_password
+#!/bin/bash
 
-mysql -e "CREATE DATABASE $db_name;"
-mysql -e "CREATE USER '$db_name'@'localhost' IDENTIFIED BY '$db_password';"
-mysql -e "GRANT ALL ON $db_name.* to '$db_name'@'localhost';"
+# Actualiza los paquetes e instala MySQL, PHP y Apache
+apt update
+apt install -y mysql-server php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl apache2
 
-# Paso 1: Instalación de PHP y Apache con módulos
-sudo apt install -y php7.4 php7.4-mysql libapache2-mod-php7.4
+# Inicia el servicio de MySQL
+systemctl start mysql
+
+# Pide al usuario el nombre, usuario y contraseña de la base de datos
+read -p "Nombre de la base de datos WordPress: " dbname
+read -p "Usuario de la base de datos WordPress: " dbuser
+read -s -p "Contraseña del usuario de la base de datos WordPress: " dbpass
+echo
+
+# Conecta con MySQL y crea la base de datos y el usuario
+mysql -u root <<EOF
+CREATE DATABASE $dbname;
+CREATE USER '$dbuser'@'localhost' IDENTIFIED BY '$dbpass';
+GRANT ALL ON $dbname.* TO '$dbuser'@'localhost';
+FLUSH PRIVILEGES;
+EOF
+
+# Descarga WordPress y configura los directorios
+cd /var/www
+mv html html-original
+wget https://wordpress.org/latest.tar.gz
+tar xzf latest.tar.gz
+mv wordpress html
+chown -R www-data:www-data html
+
+# Reinicia Apache para aplicar la configuración
+systemctl restart apache2
+
 sudo a2enmod php7.4
 sudo a2enmod headers
+
+# Obtén automáticamente el nombre del dominio de la máquina
+domain_url="http://$(hostname -I | awk '{print $1}')"
+
+# la instalación de PHP, MySQL, Apache y WordPress
+
+echo "WordPress se ha instalado correctamente."
+echo "Credenciales de la base de datos:"
+echo "Base de datos: $dbname"
+echo "Usuario de la base de datos: $dbuser"
+echo "Contraseña de la base de datos: $dbpass"
+echo "URL del dominio de tu sitio web: $domain_url"
+
 
 # Añadir la directiva ServerName al archivo de configuración de Apache
 echo "ServerName localhost" | sudo tee /etc/apache2/conf-available/servername.conf
@@ -322,48 +357,6 @@ sudo systemctl restart apache2
 sudo a2enmod rewrite
 sudo systemctl restart apache2
 
-# Paso 3: Dar permisos a las carpetas de WordPress
-sudo chown -R www-data:www-data /var/www/html
-sudo chmod -R 755 /var/www/html
-
-# Paso 4, 5 y 6: Configuración del administrador de WordPress
-read -p "Ingresa el nombre de usuario del administrador de WordPress: " wp_admin
-read -p "Ingresa la contraseña del administrador de WordPress: " wp_password
-read -p "Ingresa el correo del administrador de WordPress: " wp_email
-
-# Descargar y configurar WordPress
-cd /tmp
-wget https://wordpress.org/latest.tar.gz
-tar -xzvf latest.tar.gz
-sudo cp -r wordpress/* /var/www/html/
-sudo mv /var/www/html/wp-config-sample.php /var/www/html/wp-config.php
-sudo sed -i "s/database_name_here/$db_name/" /var/www/html/wp-config.php
-sudo sed -i "s/username_here/$db_name/" /var/www/html/wp-config.php
-sudo sed -i "s/password_here/$db_password/" /var/www/html/wp-config.php
-
-# Ruta del archivo de configuración de WordPress
-wp_config_file="/var/www/html/wp-config.php"
-
-# Comprueba si el archivo de configuración existe
-if [ ! -f "$wp_config_file" ]; then
-    echo "El archivo de configuración wp-config.php no se encontró en la ubicación especificada."
-    exit 1
-fi
-
-# Descarga las claves secretas desde WordPress.org
-salt_data=$(curl -s https://api.wordpress.org/secret-key/1.1/salt/)
-
-# Reemplaza las claves secretas en el archivo de configuración
-sed -i -e '/AUTH_KEY/d' -e '/SECURE_AUTH_KEY/d' -e '/LOGGED_IN_KEY/d' -e '/NONCE_KEY/d' -e '/AUTH_SALT/d' -e '/SECURE_AUTH_SALT/d' -e '/LOGGED_IN_SALT/d' -e '/NONCE_SALT/d' "$wp_config_file"
-echo "$salt_data" >> "$wp_config_file"
-
-echo "Claves secretas de WordPress actualizadas con éxito en $wp_config_file"
-
-
-# Configurar datos del administrador en wp-config.php
-sudo sed -i "s/'username'/'$wp_admin'/" /var/www/html/wp-config.php
-sudo sed -i "s/'password'/'$wp_password'/" /var/www/html/wp-config.php
-sudo sed -i "s/'email'/'$wp_email'/" /var/www/html/wp-config.php
 
 
 # Verificar si se está ejecutando como superusuario
@@ -871,18 +864,11 @@ sudo apt-get autoremove -y
 
 # Verificar si la carpeta /root/.cloudflared/ existe y eliminarla si es necesario
 if [ -d "/root/.cloudflared" ]; then
-  sudo rm -rf "/root/.cloudflared"
+  sudo rm -rf "/root/.cloudflared/"
   echo "La carpeta /root/.cloudflared/ ha sido eliminada."
 else
   echo "La carpeta /root/.cloudflared/ no existe."
 fi
-
-		;;
-		
-		
-		9)
-		
-		
 		
 		;;
 
