@@ -24,7 +24,7 @@ show_options() {
     echo "5. ESCUDO-SSH"
     echo "6. FAIL2BAN"
     echo "7. MOD-PHP.INI"
-    echo "8. RESET 1-2-3-4-5"
+    echo "8. RESET 1-2-3-4-6"7
     echo "0. Salir"
 }
 
