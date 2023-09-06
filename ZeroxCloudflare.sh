@@ -732,102 +732,62 @@ echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
 
 7)
 
- # Ruta de los archivos php.ini
-php_ini_cli="/etc/php/7.4/cli/php.ini"
-php_ini_apache="/etc/php/7.3/apache2/php.ini"
 
-# Variables a configurar
-upload_max_filesize="128M"
-post_max_size="128M"
-memory_limit="256M"
+while true; do
+    clear
+    echo "Configuración de php.ini"
+    echo "------------------------"
+    echo "1) Permitir Datos Grandes"
+    echo "2) Desactivar Datos Grandes"
+    echo "3) Salir"
 
-# Variables de tiempo
-max_execution_time="300"
-max_input_time="300"
-extended_execution_time="3600"  # 1 hora en segundos
+    read -p "Seleccione una opción: " opcion
 
-# Comando para reiniciar el servidor web
-restart_command="service apache2 restart"
+    case $opcion in
+        1)
+            echo "Configurando para Permitir Datos Grandes..."
+            sudo sed -i 's/^;\?upload_max_filesize = .*/upload_max_filesize = 128M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?post_max_size = .*/post_max_size = 128M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?memory_limit = .*/memory_limit = 256M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 300/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 300/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?upload_max_filesize = .*/upload_max_filesize = 128M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?post_max_size = .*/post_max_size = 128M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?memory_limit = .*/memory_limit = 256M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 300/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 300/' /etc/php/7.4/cli/php.ini
+            echo "Configuración completada."
+            
+            systemctl restart apache2
+            ;;
+        2)
+            echo "Configurando para Desactivar Datos Grandes..."
+            sudo sed -i 's/^;\?upload_max_filesize = .*/upload_max_filesize = 50M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?post_max_size = .*/post_max_size = 60M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?memory_limit = .*/memory_limit = 30M/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 30/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 30/' /etc/php/7.4/apache2/php.ini
+            sudo sed -i 's/^;\?upload_max_filesize = .*/upload_max_filesize = 50M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?post_max_size = .*/post_max_size = 60M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?memory_limit = .*/memory_limit = 30M/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 30/' /etc/php/7.4/cli/php.ini
+            sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 30/' /etc/php/7.4/cli/php.ini
+            echo "Configuración completada."
+            systemctl restart apache2
+            ;;
+        3)
+            echo "Saliendo..."
+            exit 0
+            ;;
+        *)
+            echo "Opción no válida. Intente de nuevo."
+            ;;
+    esac
 
-# Verificar si la opción de tiempo extendido está habilitada
-if [ -f "/tmp/php-extended-time" ]; then
-    # Configurar valores extendidos
-    max_execution_time="$extended_execution_time"
-    max_input_time="$extended_execution_time"
-fi
+systemctl restart apache2
+    read -p "Presione Enter para continuar..."
+done
 
-# Función para agregar configuraciones a php.ini
-add_php_config() {
-    local file="$1"
-    local config="$2"
-    echo "Agregando configuraciones a $file"
-    echo "$config" >> "$file"
-}
-
-# Función para restaurar configuraciones originales de php.ini
-restore_php_config() {
-    local file="$1"
-    local original_file="$2"
-    echo "Restaurando configuraciones originales de $file"
-    mv "$original_file" "$file"
-    $restart_command
-}
-
-# Mostrar menú de opciones al usuario
-echo "Menú de opciones:"
-echo "1) Ajustar a PHP"
-echo "2) Volver a asegurar PHP"
-read -p "Elija una opción (1/2): " option
-
-# Ejecutar opción seleccionada
-case "$option" in
-    1)
-        # Guardar configuración original de php.ini
-        cp "$php_ini_cli" "/tmp/php.ini.cli.bak"
-        cp "$php_ini_apache" "/tmp/php.ini.apache.bak"
-
-        # Agregar configuraciones extendidas
-        add_php_config "$php_ini_cli" "php_value max_execution_time $extended_execution_time"
-        add_php_config "$php_ini_apache" "php_value max_execution_time $extended_execution_time"
-
-        echo "Configuración extendida aplicada."
-
-        # Guardar marca para la opción de tiempo extendido
-        touch "/tmp/php-extended-time"
-
-        # Reiniciar el servidor web
-        $restart_command
-        ;;
-
-    2)
-        # Restaurar configuraciones originales de php.ini
-        restore_php_config "$php_ini_cli" "/tmp/php.ini.cli.bak"
-        restore_php_config "$php_ini_apache" "/tmp/php.ini.apache.bak"
-
-        # Eliminar marca para la opción de tiempo extendido
-        rm -f "/tmp/php-extended-time"
-
-        echo "Configuración restaurada al estado original."
-        ;;
-    *)
-        echo "Opción no válida."
-        ;;
-esac
-
-# Esperar 1 hora antes de revertir automáticamente
-sleep "$extended_execution_time"
-
-# Verificar si la opción de tiempo extendido está habilitada después de 1 hora
-if [ -f "/tmp/php-extended-time" ]; then
-    # Restaurar configuraciones originales de php.ini después de 1 hora
-    restore_php_config "$php_ini_cli" "/tmp/php.ini.cli.bak"
-    restore_php_config "$php_ini_apache" "/tmp/php.ini.apache.bak"
-
-    # Eliminar marca para la opción de tiempo extendido
-    rm -f "/tmp/php-extended-time"
-
-    echo "Se ha restaurado automáticamente la configuración al estado original después de 1 hora."
-fi
 ;;
 
 		8)
