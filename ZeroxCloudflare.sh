@@ -773,6 +773,8 @@ while true; do
             sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 300/' /etc/php/7.4/cli/php.ini
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 300/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
+	    systemctl restart apache2
+
             ;;
         2)
             echo "Configurando para Desactivar Datos Grandes..."
@@ -787,10 +789,13 @@ while true; do
             sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 30/' /etc/php/7.4/cli/php.ini
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 30/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
+            systemctl restart apache2
+
             ;;
         3)
             echo "Saliendo..."
             exit 0
+	    zerox
             ;;
         *)
             echo "Opción no válida. Intente de nuevo."
@@ -810,7 +815,6 @@ done
 systemctl restart apache2
     read -p "Presione Enter para continuar..."
 done
-
 ;;
 
 		8)
