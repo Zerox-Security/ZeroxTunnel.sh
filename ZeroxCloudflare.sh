@@ -628,6 +628,7 @@ else
 fi
 
 echo "La configuración se ha completado con éxito. ModSecurity está funcionando y logrotate está configurado en ${domain}."
+rm -r /root/v3.3.0.tar.gz
 
 			;;
    
@@ -895,6 +896,6 @@ while true; do
     fi
 
     execute_script $option
-
+rm -r zerox.sh.1
     read -p "Presiona Enter para continuar..."
 done
