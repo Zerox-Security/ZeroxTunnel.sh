@@ -357,13 +357,6 @@ sudo a2enmod rewrite
 sudo systemctl restart apache2
 
 
-
-# Verificar si se está ejecutando como superusuario
-if [[ $EUID -ne 0 ]]; then
-    echo "Este script debe ejecutarse como superusuario (root)." 
-    exit 1
-fi
-
 # Configurar actualizaciones automáticas de seguridad
 echo "Configurando actualizaciones automáticas de seguridad..."
 apt-get install -y unattended-upgrades
