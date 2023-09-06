@@ -817,7 +817,7 @@ sudo cloudflared service uninstall -y
 
 # Comando para eliminar WordPress desde /var/www/html/
 sudo rm -rf /var/www/html/*
-
+rm -r /root/zerox.sh.1
 # Confirmar la eliminación
 echo "Eliminación completa de PHP 7.4, MySQL, Apache2, ModSecurity, Cloudflared y WordPress."
 
