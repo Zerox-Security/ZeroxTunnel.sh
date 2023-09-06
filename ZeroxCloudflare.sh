@@ -748,7 +748,6 @@ echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
 
 7)
 
-
 while true; do
     clear
     echo "Configuración de php.ini"
@@ -773,8 +772,6 @@ while true; do
             sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 300/' /etc/php/7.4/cli/php.ini
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 300/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
-            
-            systemctl restart apache2
             ;;
         2)
             echo "Configurando para Desactivar Datos Grandes..."
@@ -789,11 +786,20 @@ while true; do
             sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 30/' /etc/php/7.4/cli/php.ini
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 30/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
-            systemctl restart apache2
             ;;
         3)
             echo "Saliendo..."
             exit 0
+            ;;
+        *)
+            echo "Opción no válida. Intente de nuevo."
+            ;;
+    esac
+
+    read -p "Presione Enter para continuar..."
+done
+
+	    zerox
             ;;
         *)
             echo "Opción no válida. Intente de nuevo."
