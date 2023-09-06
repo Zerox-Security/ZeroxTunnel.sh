@@ -24,7 +24,7 @@ show_options() {
     echo "5. ESCUDO-SSH"
     echo "6. FAIL2BAN"
     echo "7. MOD-PHP.INI"
-	echo "8. RESET 1-2-3-4-5"
+    echo "8. RESET 1-2-3-4-5"
     echo "0. Salir"
 }
 
@@ -561,59 +561,73 @@ echo "Configuración de seguridad completada y optimizado para un mejor rendimie
 
    #!/bin/bash
 
-# Verificar si el script se ejecuta como root
-if [ "$(id -u)" != "0" ]; then
-    echo "Este script debe ejecutarse como root."
+# Instalar y configurar ModSecurity
+
+sudo apt install -y libapache2-mod-security2
+sudo a2enmod security2
+sudo systemctl restart apache2
+
+# Modificar el archivo de configuración security2.conf
+
+sudo sed -i 's|IncludeOptional /etc/modsecurity/*.conf|/etc/modsecurity/modsecurity.conf-recommended|' /etc/apache2/mods-enabled/security2.conf
+sudo mv /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
+sudo sed -i 's|SecRuleEngine DetectionOnly|SecRuleEngine On|' /etc/modsecurity/modsecurity.conf
+sudo sed -i 's|SecAuditLogParts ABDEFHIJZ|SecAuditLogParts ABCEFHJKZ|' /etc/modsecurity/modsecurity.conf
+
+# Descargar y descomprimir las reglas de CRS
+
+wget https://github.com/coreruleset/coreruleset/archive/v3.3.0.tar.gz
+mkdir /etc/apache2/modsecurity-crs/
+tar -xzvf v3.3.0.tar.gz
+mv coreruleset-3.3.0/ /etc/apache2/modsecurity-crs/
+cd /etc/apache2/modsecurity-crs/coreruleset-3.3.0/
+mv crs-setup.conf.example crs-setup.conf
+
+# Actualizar la configuración de security2.conf
+
+sudo sed -i '/#Include owasp ModSecurity crs rules if installed/ {
+    N
+    s/IncludeOptional \/usr\/share\/modsecurity-crs\/\*\.load/IncludeOptional \/etc\/apache2\/modsecurity-crs\/coreruleset-3.3.0\/crs-setup.conf\nIncludeOptional \/etc\/apache2\/modsecurity-crs\/coreruleset-3.3.0\/rules\/\*\.conf/
+}' /etc/apache2/mods-enabled/security2.conf
+
+# Probar la configuración de Apache y reiniciar si es correcta
+
+sudo apache2ctl -t
+if [ $? -eq 0 ]; then
+    sudo systemctl restart apache2
+else
+    echo "Error en la configuración de Apache. Verifique los pasos anteriores."
     exit 1
 fi
 
-# Instalar Apache2 si no está instalado
-if ! dpkg -l | grep -q apache2; then
-    apt update
-    apt install -y apache2
+else
+    echo "ModSecurity no está funcionando correctamente en ${domain}. Verifique la configuración."
+    exit 1
 fi
 
-# Instalar PHP si no está instalado
-if ! dpkg -l | grep -q php; then
-    apt update
-    apt install -y php
+# Configurar logrotate para ModSecurity
+
+echo "/var/log/apache2/modsec_audit.log {
+        rotate 14
+        daily
+        missingok
+        compress
+        delaycompress
+        notifempty
+}" | sudo tee /etc/logrotate.d/modsecurity > /dev/null
+
+# Habilitar exclusiones en ModSecurity
+
+sudo sed -i '/#  setvar:tx.crs_exclusions_wordpress=1,/ s/^#//' /etc/apache2/modsecurity-crs/coreruleset-3.3.0/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf
+sudo apache2ctl -t
+if [ $? -eq 0 ]; then
+    sudo systemctl restart apache2
+else
+    echo "Error en la configuración de Apache. Verifique los pasos anteriores."
+    exit 1
 fi
 
-# Instalar ModSecurity
-apt install -y libapache2-mod-security2
-
-# Habilitar el módulo ModSecurity
-a2enmod security2
-
-# Reiniciar Apache para que los cambios surtan efecto
-systemctl restart apache2
-
-# Configurar ModSecurity
-mv /etc/modsecurity/modsecurity.conf-recommended /etc/modsecurity/modsecurity.conf
-
-# Cambiar la configuración de ModSecurity
-sed -i 's/SecRuleEngine DetectionOnly/SecRuleEngine On/' /etc/modsecurity/modsecurity.conf
-sed -i 's/SecAuditLogParts ABDEFHIJZ/SecAuditLogParts ABCEFHJKZ/' /etc/modsecurity/modsecurity.conf
-
-# Descargar e instalar el Conjunto de Reglas Principal OWASP (CRS)
-wget https://github.com/coreruleset/coreruleset/archive/v3.3.0.tar.gz
-tar xvf v3.3.0.tar.gz
-mkdir -p /etc/apache2/modsecurity-crs/
-mv coreruleset-3.3.0/ /etc/apache2/modsecurity-crs/
-
-# Cambiar la configuración de security2.conf para usar el CRS
-sed -i 's,IncludeOptional /usr/share/modsecurity-crs/*.load,IncludeOptional /etc/apache2/modsecurity-crs/coreruleset-3.3.0/crs-setup.conf\nIncludeOptional /etc/apache2/modsecurity-crs/coreruleset-3.3.0/rules/*.conf,' /etc/apache2/mods-enabled/security2.conf
-
-# Probar la configuración de Apache
-apache2ctl -t
-
-# Reiniciar Apache
-systemctl restart apache2
-
-# Información adicional para el usuario
-echo "ModSecurity se ha instalado y configurado correctamente."
-echo "Puedes realizar pruebas adicionales para asegurarte de que todo funcione según lo esperado."
-
+echo "La configuración se ha completado con éxito. ModSecurity está funcionando y logrotate está configurado en ${domain}."
 
 			;;
    
@@ -831,6 +845,21 @@ if [ -d "/root/.cloudflared" ]; then
 else
   echo "La carpeta /root/.cloudflared/ no existe."
 fi
+#!/bin/bash
+
+# Detener el servicio de Apache
+sudo systemctl stop apache2
+
+# Desinstalar el módulo ModSecurity
+sudo apt-get remove libapache2-mod-security2
+
+# Eliminar la configuración de ModSecurity
+sudo rm -rf /etc/modsecurity/
+
+# Reiniciar Apache
+sudo systemctl start apache2
+
+echo "ModSecurity ha sido desinstalado y Apache ha sido reiniciado."
 
 		;;
 		
