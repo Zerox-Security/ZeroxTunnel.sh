@@ -193,75 +193,48 @@ sudo netfilter-persistent reload
 
 echo "TODAS LAS IPS DE ZEROX SECURITY SERAN ACTUALIZADAS, AL IGUAL QUE EL SISTEMA, AHORA ESTAS SEGURO, NO TIENES NECESIDAD DE ABRIR PUERTOS, SOLO DEBES AGREGAR LOS PUERTOS DE CLOUDFLARE"
 
-# Descargar la lista de IPs desde la URL de Cloudflare
-IPS_URL="https://www.cloudflare.com/ips-v4"
-TMP_FILE=$(mktemp)
-wget -q -O "$TMP_FILE" "$IPS_URL"
 
 # Limpiar las reglas de iptables existentes
 iptables -F
 iptables -P INPUT ACCEPT
 
-# Agregar reglas para las IPs de Cloudflare
+# Directorio y nombres de los archivos
+directorio="/usr/local/cloudflare"
+archivo="zerox-Clouflare.txt"
+
+# Comprobar si el directorio existe, si no, crearlo
+if [ ! -d "$directorio" ]; then
+  sudo mkdir -p "$directorio"
+fi
+
+# Comprobar si el archivo existe, si no, crearlo
+if [ ! -f "$directorio/$archivo" ]; then
+  sudo touch "$directorio/$archivo"
+fi
+
+
+# Descargar las IPs de Cloudflare y almacenarlas en el archivo temporal
+curl -s https://www.cloudflare.com/ips-v4 > /tmp/cloudflare_ips.txt
+
+# Ubicación del archivo de reglas personalizadas de Cloudflare
+cloudflare_rules_file="/usr/local/cloudflare/zerox-Clouflare.txt"
+
+# Leer las IPs descargadas y agregarlas a la cadena CLOUDFLARE
 while read -r ip; do
-    iptables -A INPUT -s "$ip" -p tcp -m multiport --dports 80,443 -j ACCEPT
-done < "$TMP_FILE"
+    iptables -A CLOUDFLARE -s "$ip" -p tcp -m multiport --dports 80,443 -j ACCEPT
+done < /tmp/cloudflare_ips.txt
 
-# Reglas de bloqueo
-iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,ACK SYN,ACK -m state --state NEW -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG NONE -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN FIN,SYN -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags SYN,RST SYN,RST -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,PSH,ACK,URG FIN,SYN,RST,ACK,URG -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,RST FIN,RST -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,ACK FIN -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags PSH,ACK PSH -j DROP
-iptables -A INPUT -p tcp -m tcp --tcp-flags ACK,URG URG -j DROP
+# Aplicar reglas personalizadas de Cloudflare si existen
+if [ -f "$cloudflare_rules_file" ]; then
+    source "$cloudflare_rules_file"
+fi
 
-# Guardar las reglas en iptables
+# Guardar todas las reglas en iptables
 iptables-save > /etc/iptables/rules.v4
 
-# Eliminar el archivo temporal
-rm "$TMP_FILE"
+# Registra la hora en que se ejecutó el script en un archivo de registro (opcional)
+echo "Script de actualización de reglas de Cloudflare ejecutado en $(date)" >> /var/log/cloudflare_update.log
 
-
-# Verificar si git está instalado
-if ! command -v git &> /dev/null; then
-    echo "Git no está instalado. Instalando..."
-    sudo apt update
-    sudo apt install -y git
-fi
-
-# Clonar el repositorio
-git clone https://github.com/Zerox-Security/ips-zerox.sh.git /root/ips-zerox
-
-# Mover el contenido a /usr/local/bin/
-sudo cp /root/ips-zerox/* /usr/local/bin/
-
-# Dar permisos de ejecución
-sudo chmod +x /usr/local/bin/ips-zerox.sh
-
-#Instalar dos2unix si no está instalado
-if ! command -v dos2unix &> /dev/null; then
-    sudo apt-get install dos2unix -y
-fi
-
-# Convertir el script ips-zerox.sh a formato UNIX si contiene caracteres ^M
-if [[ -f "ips-zerox.sh" && $(grep -q $'\r' "ips-zerox.sh") ]]; then
-    dos2unix /usr/local/bin/ips-zerox.sh
-fi
-
-
-# Crear el archivo de configuración para el gancho de APT
-echo 'DPkg::Post-Invoke { "if [ -x /usr/local/bin/ips-zerox.sh ]; then /usr/local/bin/ips-zerox.sh; fi"; };' | sudo tee /etc/apt/apt.conf.d/99ips-zerox
- 
-
-#Limpiar el directorio temporal
-rm -rf /root/ips-zerox
-
-echo "Todas las tareas se han completado."
-
-dos2unix /usr/local/bin/ips-zerox.sh
 
 apt update && apt upgrade -y
 # Paso 20: Realizar un reinicio con contador y puntos
@@ -274,28 +247,10 @@ RC_LOCAL_CONTENT="#!/bin/sh -e\n\n# Añadir comandos aquí\n\nexit 0"
 SCRIPT_FILE="/usr/local/bin/ips-zerox.sh"
 
 chmod +x /usr/local/bin/ips-zerox.sh
-
-# Crear o sobrescribir el archivo /etc/rc.local
-echo -e "$RC_LOCAL_CONTENT" | sudo tee /etc/rc.local > /dev/null
-
-# Añadir permisos de ejecución a /etc/rc.local
-sudo chmod +x /etc/rc.local
-
-# Habilitar el servicio rc-local
-sudo systemctl enable rc-local
-for i in {5..1}; do
-    echo -n "$i..."
-    sleep 1
-done
-
-reboot
             ;;
        
         2)
 	
-
-#!/bin/bash
-
 # Actualiza los paquetes e instala MySQL, PHP y Apache
 apt update
 apt install -y mysql-server php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl apache2
