@@ -283,10 +283,9 @@ chown -R www-data:www-data html
 # Reinicia Apache para aplicar la configuración
 systemctl restart apache2
 apt install php7.4 libapache2-mod-php7.4 -y
-a2enmod php7.4
-systemctl restart apache2
 sudo a2enmod php7.4
 sudo a2enmod headers
+systemctl restart apache2
 
 # Obtén automáticamente el nombre del dominio de la máquina
 domain_url="http://$(hostname -I | awk '{print $1}')"
