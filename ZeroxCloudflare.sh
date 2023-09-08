@@ -24,7 +24,7 @@ show_options() {
     echo "5. ESCUDO-SSH"
     echo "6. FAIL2BAN"
     echo "7. MOD-PHP.INI"
-    echo "8. RESET 1-2-3-4-6"7
+	echo "8. RESET 1-2-3-4-6-7"
     echo "0. Salir"
 }
 
@@ -179,7 +179,7 @@ cloudflared service install
 
 systemctl restart cloudflared
 
-
+rm -r /root/ZeroxTunnel.sh
 # Comandos persistentes
 sudo apt-get install iptables-persistent -y
 
@@ -193,31 +193,21 @@ sudo netfilter-persistent reload
 
 echo "TODAS LAS IPS DE ZEROX SECURITY SERAN ACTUALIZADAS, AL IGUAL QUE EL SISTEMA, AHORA ESTAS SEGURO, NO TIENES NECESIDAD DE ABRIR PUERTOS, SOLO DEBES AGREGAR LOS PUERTOS DE CLOUDFLARE"
 
-
-# Limpiar las reglas de iptables existentes
-iptables -F
-iptables -P INPUT ACCEPT
-
-# Directorio y nombres de los archivos
-directorio="/usr/local/cloudflare"
-archivo="zerox-Clouflare.txt"
-
-# Comprobar si el directorio existe, si no, crearlo
-if [ ! -d "$directorio" ]; then
-  sudo mkdir -p "$directorio"
-fi
-
-# Comprobar si el archivo existe, si no, crearlo
-if [ ! -f "$directorio/$archivo" ]; then
-  sudo touch "$directorio/$archivo"
-fi
-
+#!/bin/bash
 
 # Descargar las IPs de Cloudflare y almacenarlas en el archivo temporal
 curl -s https://www.cloudflare.com/ips-v4 > /tmp/cloudflare_ips.txt
 
 # Ubicación del archivo de reglas personalizadas de Cloudflare
 cloudflare_rules_file="/usr/local/cloudflare/zerox-Clouflare.txt"
+
+# Verificar si la cadena CLOUDFLARE ya existe, y si no, crearla
+if ! iptables -L CLOUDFLARE -n &>/dev/null; then
+    iptables -N CLOUDFLARE
+fi
+
+# Limpiar reglas de Cloudflare existentes
+iptables -F CLOUDFLARE
 
 # Leer las IPs descargadas y agregarlas a la cadena CLOUDFLARE
 while read -r ip; do
@@ -236,21 +226,13 @@ iptables-save > /etc/iptables/rules.v4
 echo "Script de actualización de reglas de Cloudflare ejecutado en $(date)" >> /var/log/cloudflare_update.log
 
 
-apt update && apt upgrade -y
-# Paso 20: Realizar un reinicio con contador y puntos
-echo "El sistema se reiniciará en 5 segundos..."chmod +x /usr/local/bin/ips-zerox.sh
-
-# Contenido del archivo rc.local
-RC_LOCAL_CONTENT="#!/bin/sh -e\n\n# Añadir comandos aquí\n\nexit 0"
-
-# Ruta al archivo de script
-SCRIPT_FILE="/usr/local/bin/ips-zerox.sh"
-
-chmod +x /usr/local/bin/ips-zerox.sh
             ;;
        
         2)
 	
+
+#!/bin/bash
+
 # Actualiza los paquetes e instala MySQL, PHP y Apache
 apt update
 apt install -y mysql-server php-fpm php-common php-mbstring php-xmlrpc php-soap php-gd php-xml php-intl php-mysql php-cli php-ldap php-zip php-curl apache2
@@ -282,10 +264,9 @@ chown -R www-data:www-data html
 
 # Reinicia Apache para aplicar la configuración
 systemctl restart apache2
-apt install php7.4 libapache2-mod-php7.4 -y
+sudo apt install php7.4 libapache2-mod-php7.4
 sudo a2enmod php7.4
 sudo a2enmod headers
-systemctl restart apache2
 
 # Obtén automáticamente el nombre del dominio de la máquina
 domain_url="http://$(hostname -I | awk '{print $1}')"
@@ -513,7 +494,7 @@ echo "Configuración de seguridad completada y optimizado para un mejor rendimie
 			
 			4) 
 
-   #!/bin/bash
+#!/bin/bash
 
 # Instalar y configurar ModSecurity
 
@@ -551,13 +532,11 @@ if [ $? -eq 0 ]; then
     sudo systemctl restart apache2
 else
     echo "Error en la configuración de Apache. Verifique los pasos anteriores."
-    exit 1
-fi
 
-else
     echo "ModSecurity no está funcionando correctamente en ${domain}. Verifique la configuración."
     exit 1
 fi
+
 
 # Configurar logrotate para ModSecurity
 
@@ -582,7 +561,6 @@ else
 fi
 
 echo "La configuración se ha completado con éxito. ModSecurity está funcionando y logrotate está configurado en ${domain}."
-rm -r /root/v3.3.0.tar.gz
 
 			;;
    
@@ -703,6 +681,7 @@ echo "Fail2Ban se ha configurado para proteger Apache2 y PHP."
 
 7)
 
+
 while true; do
     clear
     echo "Configuración de php.ini"
@@ -727,8 +706,8 @@ while true; do
             sudo sed -i 's/^;\?max_execution_time = .*/max_execution_time = 300/' /etc/php/7.4/cli/php.ini
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 300/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
-	    systemctl restart apache2
-
+            
+            systemctl restart apache2
             ;;
         2)
             echo "Configurando para Desactivar Datos Grandes..."
@@ -744,22 +723,10 @@ while true; do
             sudo sed -i 's/^;\?max_input_time = .*/max_input_time = 30/' /etc/php/7.4/cli/php.ini
             echo "Configuración completada."
             systemctl restart apache2
-
             ;;
         3)
             echo "Saliendo..."
             exit 0
-	    zerox
-            ;;
-        *)
-            echo "Opción no válida. Intente de nuevo."
-            ;;
-    esac
-
-    read -p "Presione Enter para continuar..."
-done
-
-	    zerox
             ;;
         *)
             echo "Opción no válida. Intente de nuevo."
@@ -769,6 +736,7 @@ done
 systemctl restart apache2
     read -p "Presione Enter para continuar..."
 done
+
 ;;
 
 		8)
@@ -787,16 +755,29 @@ sudo rm -rf /etc/apache2
 sudo apt-get purge -y php7.4 php7.4-common php7.4-cli php7.4-fpm php7.4-mysql php7.4-curl php7.4-gd php7.4-json php7.4-zip php7.4-mbstring php7.4-intl php7.4-xml php7.4-bcmath php7.4-json php7.4-iconv php7.4-xdebug php7.4-soap php7.4-ldap -y
 sudo rm -rf /etc/php/7.4
 
-# Comando para eliminar ModSecurity y sus configuraciones
-sudo apt-get purge -y libapache2-mod-security2
-sudo rm -rf /etc/modsecurity /var/log/modsecurity
+
+# Detener el servicio de Apache
+sudo systemctl stop apache2
+
+# Desinstalar el módulo ModSecurity
+sudo apt-get remove libapache2-mod-security2
+rm -r /root/coreruleset-3.3.0
+rm -r v3.3.0.tar.gz
+# Eliminar la configuración de ModSecurity
+sudo rm -rf /etc/modsecurity/
+
+# Reiniciar Apache
+sudo systemctl start apache2
+
+echo "ModSecurity ha sido desinstalado y Apache ha sido reiniciado."
+
 
 # Comando para eliminar Cloudflared
-sudo cloudflared service uninstall -y
 
+sudo cloudflared service uninstall
 # Comando para eliminar WordPress desde /var/www/html/
 sudo rm -rf /var/www/html/*
-rm -r /root/zerox.sh.1
+
 # Confirmar la eliminación
 echo "Eliminación completa de PHP 7.4, MySQL, Apache2, ModSecurity, Cloudflared y WordPress."
 
@@ -810,21 +791,38 @@ if [ -d "/root/.cloudflared" ]; then
 else
   echo "La carpeta /root/.cloudflared/ no existe."
 fi
+
 #!/bin/bash
 
-# Detener el servicio de Apache
-sudo systemctl stop apache2
+# Comprobar si el usuario tiene privilegios de superusuario
+if [ "$EUID" -ne 0 ]; then
+    echo "Este script debe ser ejecutado como superusuario (root)."
+    exit 1
+fi
 
-# Desinstalar el módulo ModSecurity
-sudo apt-get remove libapache2-mod-security2
+# Detener el servicio Fail2Ban si está en ejecución
+if systemctl is-active --quiet fail2ban; then
+    systemctl stop fail2ban
+fi
 
-# Eliminar la configuración de ModSecurity
-sudo rm -rf /etc/modsecurity/
+# Desinstalar Fail2Ban
+apt remove --purge fail2ban
 
-# Reiniciar Apache
-sudo systemctl start apache2
+# Eliminar configuraciones y archivos residuales de Fail2Ban
+rm -rf /etc/fail2ban
+rm -rf /var/lib/fail2ban
 
-echo "ModSecurity ha sido desinstalado y Apache ha sido reiniciado."
+# Eliminar reglas de iptables creadas por Fail2Ban
+iptables -F
+iptables -X
+
+# Reiniciar iptables (esto puede desconectar la sesión SSH actual si estás conectado por SSH)
+service iptables restart
+
+echo "Fail2Ban se ha eliminado completamente del sistema."
+
+exit 0
+
 
 		;;
 		
@@ -854,6 +852,6 @@ while true; do
     fi
 
     execute_script $option
-rm -r zerox.sh.1
+
     read -p "Presiona Enter para continuar..."
 done
