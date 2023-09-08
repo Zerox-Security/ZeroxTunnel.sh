@@ -24,7 +24,8 @@ show_options() {
     echo "5. ESCUDO-SSH"
     echo "6. FAIL2BAN"
     echo "7. MOD-PHP.INI"
-	echo "8. RESET 1-2-3-4-6-7"
+    echo "8. RESET 1-2-3-4-6-7"
+    echo "9. MYSQL"
     echo "0. Salir"
 }
 
@@ -829,7 +830,119 @@ exit 0
 		
 		9)
 		
-		
+		#!/bin/bash
+
+# Verificar si MySQL está instalado, si no, instalarlo
+if ! dpkg -l | grep -q mysql-server; then
+    echo "MySQL no está instalado. Instalando..."
+    sudo apt update
+    sudo apt install mysql-server -y
+    sudo systemctl start mysql
+    sudo systemctl enable mysql
+    echo "MySQL ha sido instalado y está en ejecución."
+fi
+
+# Función para mostrar el menú principal
+show_menu() {
+    clear
+    echo "Menú Principal"
+    echo "1: Nombres de bases de datos"
+    echo "2: Usuarios de bases de datos"
+    echo "3: Crear Base de datos"
+    echo "4: Crear usuario"
+    echo "5: Eliminar User-Base-Pass"
+    echo "0: Salir"
+    read -p "Seleccione una opción: " choice
+    case $choice in
+        1) show_databases ;;
+        2) show_users ;;
+        3) create_database ;;
+        4) create_user ;;
+        5) show_delete_menu ;;
+        6) reset_zerox ;;
+        0) exit ;;
+        *) echo "Opción inválida";;
+    esac
+}
+
+# Función para mostrar nombres de bases de datos
+show_databases() {
+    echo "Bases de datos:"
+    mysql -e "SHOW DATABASES;"
+    read -p "Presione Enter para volver al menú principal."
+}
+
+# Función para mostrar usuarios de bases de datos
+show_users() {
+    echo "Usuarios de bases de datos:"
+    mysql -e "SELECT user, host FROM mysql.user;"
+    read -p "Presione Enter para volver al menú principal."
+}
+
+# Función para crear una base de datos
+create_database() {
+    read -p "Ingrese el nombre de la nueva base de datos: " dbname
+    mysql -e "CREATE DATABASE IF NOT EXISTS $dbname;"
+    echo "Base de datos '$dbname' creada con éxito."
+    read -p "Presione Enter para volver al menú principal."
+}
+
+# Función para crear un usuario
+create_user() {
+    read -p "Ingrese el nombre del nuevo usuario: " username
+    read -p "Ingrese la contraseña del nuevo usuario: " password
+    mysql -e "CREATE USER '$username'@'localhost' IDENTIFIED BY '$password';"
+    mysql -e "GRANT ALL PRIVILEGES ON *.* TO '$username'@'localhost';"
+    echo "Usuario '$username' creado con éxito y con permisos en todas las bases de datos."
+    read -p "Presione Enter para volver al menú principal."
+}
+
+# Función para mostrar el menú de eliminación
+show_delete_menu() {
+    clear
+    echo "Eliminar User-Base-Pass"
+    echo "1: Eliminar bases de datos"
+    echo "2: Eliminar usuarios"
+    echo "0: Volver al menú principal"
+    read -p "Seleccione una opción: " choice
+    case $choice in
+        1) delete_database ;;
+        2) delete_user ;;
+        0) show_menu ;;
+        *) echo "Opción inválida";;
+    esac
+}
+
+# Función para eliminar bases de datos
+delete_database() {
+    echo "Bases de datos:"
+    mysql -e "SHOW DATABASES;"
+    read -p "Ingrese el nombre de la base de datos que desea eliminar: " dbname
+    mysql -e "DROP DATABASE IF EXISTS $dbname;"
+    echo "Base de datos '$dbname' eliminada con éxito."
+    read -p "Presione Enter para volver al menú principal."
+}
+
+# Función para eliminar usuarios
+delete_user() {
+    echo "Usuarios de bases de datos:"
+    mysql -e "SELECT user, host FROM mysql.user;"
+    read -p "Ingrese el nombre de usuario que desea eliminar: " username
+    mysql -e "DROP USER IF EXISTS '$username'@'localhost';"
+    echo "Usuario '$username' eliminado con éxito."
+    read -p "Presione Enter para volver al menú principal."
+}
+
+
+# Ejecutar el menú principal
+while true; do
+    show_menu
+    if [ "$choice" == "0" ]; then
+        reset_zerox
+        break
+    fi
+done
+
 		
 		;;
 
