@@ -30,7 +30,7 @@ mostrar_menu_principal() {
 2. WORDPRESS 
 3. PROTEGER APACHE 
 4. ESCUDO-SSH
-6. RESET 
+5. RESET 
 0. Salir de ZEROX
 Seleccione una opción:'
         read opcion
@@ -1298,7 +1298,7 @@ mostrar_submenu_fail2ban() {
 4: PROTEGER MYSQL
 5: PROTEGER PHP7.4
 0: Volver al menú principal
-9: Salir de Zerox
+9: Salir de ZEROX
 Seleccione una opción:'
         read opcion_fail2ban
 
@@ -1546,7 +1546,7 @@ rm -r /etc/apache2
 rm -r /var/log/apache2
 rm -r /var/www/html
 
-# Eliminar dependencias huérfanas
+# ZEROX SECURITY
 apt-get autoremove --purge -y
 
 echo "Apache2 ha sido desinstalado y purgado correctamente."
