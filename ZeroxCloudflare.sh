@@ -29,8 +29,7 @@ mostrar_menu_principal() {
 1. CLOUDFLARE
 2. WORDPRESS 
 3. PROTEGER APACHE 
-4. ESCUDO-SSH 
-5. FAIL2BAN 
+4. ESCUDO-SSH
 6. RESET 
 0. Salir de ZEROX
 Seleccione una opción:'
@@ -245,11 +244,11 @@ echo "Script de actualización de reglas de Cloudflare ejecutado en $(date)" >> 
                 # ZEROX SECURITY
                 mostrar_submenu_escudo_ssh
                 ;;
-            5)
+            15)
                 # ZEROX SECURITY
                 mostrar_submenu_fail2ban
                 ;;
-            6)
+            5)
                 # ZEROX SECURITY
                 mostrar_submenu_reset
                 ;;
