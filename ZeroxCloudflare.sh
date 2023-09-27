@@ -1524,8 +1524,7 @@ mostrar_submenu_reset() {
 4 Php7.4
 5 WordPress
 6 CloudFlare
-7 Fail2Ban
-8 Mod_Evasive
+7 Mod_Evasive
 0 Volver al menú principal
 9 Salir de Zerox
 Seleccione una opción:'
@@ -1680,7 +1679,7 @@ echo "Cloudflared Tunnel se ha eliminado completamente de tu sistema."
                 ;;
 				
 				
-				7)
+				88)
 				
 				
 				#!/bin/bash
@@ -1705,7 +1704,7 @@ exit 0
 
 			;;
 			
-			8)
+			7)
 			
 			
 			#!/bin/bash
